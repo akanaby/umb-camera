@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Câmara - Cartão de Afiliação UMB</title>
+<style>
+*{box-sizing:border-box;margin:0;font-family:Arial,Helvetica,sans-serif}
+body{background:#111;color:#fff;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:14px}
+#box{position:relative;width:100%;max-width:520px;background:#000;border-radius:10px;overflow:hidden;min-height:120px}
+video,#res{display:block;width:100%}
+#guia{position:absolute;top:0;bottom:0;left:50%;transform:translateX(-50%);aspect-ratio:258/320;box-shadow:0 0 0 9999px rgba(0,0,0,.5);border:2px solid #fff;border-radius:6px;pointer-events:none}
+.bt{display:flex;gap:10px}
+button{padding:12px 22px;border:0;border-radius:8px;font-weight:700;font-size:15px;cursor:pointer}
+#cap{background:#6B1B22;color:#fff}#ok{background:#1E3B2B;color:#fff}#rep{background:#ddd}
+p{font-size:13px;opacity:.85;text-align:center;max-width:520px}
+</style>
+</head>
+<body>
+<div id="box"><video id="v" autoplay playsinline muted></video><img id="res" alt="" style="display:none"><div id="guia"></div></div>
+<p id="msg">A abrir a câmara…</p>
+<div class="bt">
+  <button id="cap">Capturar</button>
+  <button id="rep" style="display:none">Repetir</button>
+  <button id="ok" style="display:none">Usar esta foto</button>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+let stream = null, url = '';
+
+async function abrir() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 960 } } });
+    $('v').srcObject = stream;
+    $('msg').textContent = 'Enquadre o rosto dentro da moldura e clique em Capturar.';
+  } catch (e) {
+    $('msg').textContent = 'Não foi possível abrir a câmara (' + e.name + '). Clique no cadeado da barra de endereço, permita a câmara e recarregue a página.';
+  }
+}
+function mostrar(modo) {   // 'ao-vivo' ou 'captura'
+  const cap = modo === 'captura';
+  $('v').style.display = cap ? 'none' : 'block';
+  $('res').style.display = cap ? 'block' : 'none';
+  $('cap').style.display = cap ? 'none' : 'inline-block';
+  $('rep').style.display = $('ok').style.display = cap ? 'inline-block' : 'none';
+}
+$('cap').onclick = () => {
+  const v = $('v'); if (!v.videoWidth) return;
+  const k = Math.min(1, 1280 / Math.max(v.videoWidth, v.videoHeight));
+  const c = document.createElement('canvas'); c.width = Math.round(v.videoWidth * k); c.height = Math.round(v.videoHeight * k);
+  c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+  url = c.toDataURL('image/jpeg', 0.9); $('res').src = url; mostrar('captura');
+};
+$('rep').onclick = () => mostrar('ao-vivo');
+$('ok').onclick = () => {
+  if (!window.opener) { $('msg').textContent = 'Abra esta página a partir do botão Câmara do sistema.'; return; }
+  window.opener.postMessage({ tipo: 'foto-umb', dataUrl: url }, '*');
+  $('msg').textContent = 'Foto enviada para o sistema.';
+  setTimeout(() => window.close(), 300);
+};
+window.addEventListener('pagehide', () => { if (stream) stream.getTracks().forEach(t => t.stop()); });
+abrir();
+</script>
+</body>
+</html>
